@@ -19,7 +19,7 @@
 
 (define HIT_RANGE 10)
 
-(define INVADE_RATE 100)
+(define INVADE_RATE 28)
 
 (define BACKGROUND (empty-scene WIDTH HEIGHT))
 
@@ -87,7 +87,7 @@
 
 #;
 (define (fn-for-invader invader)
-  (... (invader-x invader) (invader-y invader) (invader-dx invader)))
+  (... (invader-x invader) (invader-y invader) (invader-dir invader)))
 
 
 ;; listOfInvaders is one of:
@@ -172,11 +172,11 @@
                          T1
                          501))
  
-(check-expect (updateGame G3)
-              (make-game empty
+(check-expect (updateGame G4)
+              (make-game (list (make-invader (- 300 INV_X_SPEED) (+ 50 INV_Y_SPEED) -1)) 
                          (list (make-missile 150 (- 300 MISSILE_SPEED)))
                          T1
-                         1257))
+                         1001))
 
  
 (define (updateGame g)
@@ -280,7 +280,7 @@
              true
              (mslCollides? m (rest loi)))]))
 
-
+ 
 ;; missilesOnScreenOnly
 ;; Game -> Game
 ;; removes all the missiles that have moved beyond upper edge of BACKGROUND from the game
@@ -333,14 +333,53 @@
                          2011))
  
 (define (moveObjects g)
-  (make-game (moveInvaders (game-invaders g)) (moveMissiles (game-missiles g)) (game-tank g) (game-t g)))
-  
+  (make-game (moveInvaders (game-invaders g))
+             (moveMissiles (game-missiles g))
+             (game-tank g)
+             (game-t g)))
+   
  
 ;; moveInvaders
 ;; listOfInvaders -> listOfInvaders
 ;; moves each invaders in the list on the x and y axis by their speed
-;; !!!
-(define (moveInvaders loi) loi)
+(check-expect (moveInvaders LOI0) LOI0)
+(check-expect (moveInvaders LOI1) (list (make-invader (+ 150 INV_X_SPEED) (+ 100 INV_Y_SPEED) 1)))
+(check-expect (moveInvaders LOI2) (list
+                                   (make-invader (+ 150 INV_X_SPEED) (+ 100 INV_Y_SPEED)  1)
+                                   (make-invader (- 150 INV_X_SPEED) (+ 500 INV_Y_SPEED) -1)
+                                   (make-invader (- 300 INV_X_SPEED) (+  50 INV_Y_SPEED) -1) ))
+
+(define (moveInvaders loi)
+  (cond [(empty? loi) empty]
+        [else
+         (cons (moveInvader (changeDir (first loi)))
+               (moveInvaders (rest loi)))]))
+
+
+;; moveInvader
+;; Invader -> Invader
+;; updates invaders x and y coordinates
+(check-expect (moveInvader I1) (make-invader (+ 150 INV_X_SPEED) (+ 100 INV_Y_SPEED)  1))
+(check-expect (moveInvader I2) (make-invader (- 150 INV_X_SPEED) (+ 500 INV_Y_SPEED) -1))
+
+(define (moveInvader i)
+  (make-invader  (+ (invader-x i) (* INV_X_SPEED (invader-dir i)))  (+ (invader-y i) INV_Y_SPEED) (invader-dir i)))
+ 
+
+;; changeDir 
+;; Invader -> Invader
+;; changes the direction of the invader, if it touches the right or left edge of the BACKGROUND
+(check-expect (changeDir I1) I1)
+(check-expect (changeDir I2) I2)
+(check-expect (changeDir I4) (make-invader 300 50 -1))
+(check-expect (changeDir (make-invader 0 100 -1)) (make-invader 0 100 1))
+
+(define (changeDir i)
+  (cond [(<= (invader-x i) 0) (make-invader (invader-x i) (invader-y i) 1)]
+        [(>= (invader-x i) WIDTH) (make-invader (invader-x i) (invader-y i) -1)]
+        [else i]))
+
+ 
 
 
 ;; moveMissiles
@@ -348,20 +387,30 @@
 ;; moves each missile in the list towards upper edge of the BACKGROUND by MISSILE_SPEED
 (check-expect (moveMissiles LOM0) LOM0)
 (check-expect (moveMissiles LOM1) (list (make-missile 150 (- 300 MISSILE_SPEED))))
-(check-expect (moveMissiles LOM2 (list
-                                  (make-missile 150 (- 300 MISSILE_SPEED))
-                                  (make-missile 150 (- 300 MISSILE_SPEED))
-                                  (make-missile 150 (- 300 MISSILE_SPEED)) )))
+(check-expect (moveMissiles LOM2) (list
+                                   (make-missile 150 (- 300 MISSILE_SPEED))
+                                   (make-missile 150 (- 110 MISSILE_SPEED))
+                                   (make-missile 150 (- 105 MISSILE_SPEED)) )) 
 
-(define (moveMissiles lom) lom)
+(define (moveMissiles lom)
+  (cond [(empty? lom) empty]
+        [else
+         (cons (make-missile (missile-x (first lom)) (- (missile-y (first lom)) MISSILE_SPEED)) (moveMissiles (rest lom)))]))
 
 
 
 ;; invade
 ;; Game -> Game
 ;; adds a new invader every INVADE_RATE ticks
-;; !!!
-(define (invade g) g)
+(check-expect (invade G0) (make-game (list (make-invader 50 0 1)) empty T0 0))
+(check-expect (invade (make-game empty empty T0 28)) (make-game (list (make-invader 50 0 1)) empty T0 28))
+(check-expect (invade G3) G3)
+(check-expect (invade (make-game empty empty T0 84)) (make-game (list (make-invader 50 0 1)) empty T0 84))
+
+(define (invade g)
+  (if (integer? (/ (game-t g) INVADE_RATE))
+      (make-game (cons (make-invader 50 0 1) (game-invaders g)) (game-missiles g) (game-tank g) (game-t g))
+      g ))
 
  
 ;; renderObjects
@@ -370,7 +419,7 @@
 ;; !!!
 (define (renderObjects g) BACKGROUND)
 
- 
+  
 
 ;; handleKey
 ;; Game keyEvent -> game
