@@ -1,25 +1,25 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
-#reader(lib "htdp-intermediate-lambda-reader.ss" "lang")((modname space-invaders-starter) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f ())))
+#reader(lib "htdp-beginner-abbr-reader.ss" "lang")((modname space-invaders) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f () #f)))
 (require 2htdp/universe)
 (require 2htdp/image)
 
 ;; Space Invaders
 
-
+;; ==========================================================================
 ;; Constants:
 
 (define WIDTH  300)
 (define HEIGHT 500)
 
-(define INVADER-X-SPEED 1.5)  ;speeds (not velocities) in pixels per tick
-(define INVADER-Y-SPEED 1.5)
-(define TANK-SPEED 2)
-(define MISSILE-SPEED 10)
+(define INV_X_SPEED 1.5)  ;speeds (not velocities) in pixels per tick
+(define INV_Y_SPEED 1.5)
+(define TANK_SPEED 2)
+(define MISSILE_SPEED 10)
 
-(define HIT-RANGE 10)
+(define HIT_RANGE 10)
 
-(define INVADE-RATE 100)
+(define INVADE_RATE 100)
 
 (define BACKGROUND (empty-scene WIDTH HEIGHT))
 
@@ -35,18 +35,19 @@
               (above (rectangle 5 10 "solid" "black")       ;gun
                      (rectangle 20 10 "solid" "black"))))   ;main body
 
-(define TANK-HEIGHT/2 (/ (image-height TANK) 2))
+(define TANK_HEIGHT/2 (/ (image-height TANK) 2))
 
 (define MISSILE (ellipse 5 15 "solid" "red"))
 
 
-
+;; ==========================================================================
 ;; Data Definitions:
 
-(define-struct game (invaders missiles t))
-;; Game is (make-game  (listof Invader) (listof Missile) Tank)
+(define-struct game (invaders missiles tank t))
+;; Game is (make-game  (listof Invader) (listof Missile) Tank Natural)
 ;; interp. the current state of a space invaders game
 ;;         with the current invaders, missiles and tank position
+;;         t represents the time for which game has been running (in ticks)
 
 ;; Game constants defined below Missile data definition
 
@@ -61,7 +62,7 @@
 (define-struct tank (x dir))
 ;; Tank is (make-tank Number Integer[-1, 1])
 ;; interp. the tank location is x, HEIGHT - TANK-HEIGHT in screen coordinates
-;;         the tank moves TANK-SPEED pixels per clock tick left if dir -1, right if dir 1
+;;         the tank moves TANK_SPEED pixels per clock tick left if dir -1, right if dir 1
 
 (define T0 (make-tank (/ WIDTH 2) 1))   ;center going right
 (define T1 (make-tank 50 1))            ;going right
@@ -69,23 +70,38 @@
 
 #;
 (define (fn-for-tank t)
-  (... (tank-x t) (tank-dx t)))
+  (... (tank-x t) (tank-dir t)))
 
 
 
-(define-struct invader (x y dx))
-;; Invader is (make-invader Number Number Number)
+(define-struct invader (x y dir))
+;; Invader is (make-invader Number Number Integer[-1, 1])
 ;; interp. the invader is at (x, y) in screen coordinates
-;;         the invader along x by dx pixels per clock tick
+;;         the invader moves left if dir is -1 and right if dir is 1
 
-(define I1 (make-invader 150 100 12))           ;not landed, moving right
-(define I2 (make-invader 150 HEIGHT -10))       ;exactly landed, moving left
-(define I3 (make-invader 150 (+ HEIGHT 10) 10)) ;> landed, moving right
+(define I1 (make-invader 150 100 1))           ;not landed, moving right
+(define I2 (make-invader 150 HEIGHT -1))       ;exactly landed, moving left
+(define I3 (make-invader 150 (+ HEIGHT 10) 1)) ;> landed, moving right
+(define I4 (make-invader 200 50 -1))           ;not landed, moving lest
 
 
 #;
 (define (fn-for-invader invader)
   (... (invader-x invader) (invader-y invader) (invader-dx invader)))
+
+
+;; listOfInvaders is one of:
+;; - empty
+;; -(cons Invader listOfInvaders)
+(define LOI0 empty)
+(define LOI1 (list I1))
+(define LOI2 (list I1 I2 I4))
+#;
+(define (fn-for-loi loi)
+  (cond [(empty? loi) (...)]
+        [else
+         (... (first loi)
+              (fn-for-loi (rest loi)))]))
 
 
 (define-struct missile (x y))
@@ -101,9 +117,244 @@
   (... (missile-x m) (missile-y m)))
 
 
+;; listOfMissiles is one of:
+;; -empty
+;; -(cons Missile listOfMissiles)
+(define LOM0 empty)
+(define LOM1 (list M1))
+(define LOM2 (list M1 M2 M3))
+#;
+(define (fn-for-lom lom)
+  (cond [(empty? lom) (...)]
+        [else
+         (... (first lom)
+              (fn-for-lom (rest lom)))]))
 
-(define G0 (make-game empty empty T0))
-(define G1 (make-game empty empty T1))
-(define G2 (make-game (list I1) (list M1) T1))
-(define G3 (make-game (list I1 I2) (list M1 M2) T1))
+
+(define G0 (make-game empty empty T0 0))
+(define G1 (make-game empty empty T1 10))
+(define G2 (make-game (list I1) (list M1) T1 500))
+(define G3 (make-game (list I1 I2) (list M1 M2) T1 1256))
+(define G4 (make-game (list I1 I4) (list M1 M2) T1 1000))
+
+  
+;; ==========================================================================
+;; Functions
+
+;; main
+;; Game -> Game
+;; Updates the state of the game and renders it
+
+(define (main g)
+  (big-bang g                                 ; game
+            (on-tick updateGame)              ; game -> game  
+            (to-draw renderObjects)           ; game -> image
+            (on-key handleKey)                ; game keyEvent -> game
+            (stop-when didInvaderLand?) ))    ; game -> boolean
+
+
+
+;; updateGame
+;; Game -> Game
+;; Produces a new game with all the objects updated (position / existance)
+(check-expect (updateGame G0)
+              (make-game empty empty T0 1))    ; One tick after start, nothing moved
+
+(check-expect (updateGame G1)
+              (make-game empty empty T1 11))   ; Eleven ticks after start, nothing moved
+
+(check-expect (updateGame G2)
+              (make-game (list (make-invader (+ 150 INV_X_SPEED) (+ 100 INV_Y_SPEED) 1))
+                         (list (make-missile 150 (- 300 MISSILE_SPEED)))
+                         T1
+                         501))
+ 
+(check-expect (updateGame G3)
+              (make-game empty
+                         (list (make-missile 150 (- 300 MISSILE_SPEED)))
+                         T1
+                         1257))
+
+ 
+(define (updateGame g)
+   (invade (moveMissiles (moveInvaders (removeCollisions (updateTimer g))))))
+
+
+ 
+;; updateTimer
+;; Game -> Game
+;; updates game timer by 1 tick
+(check-expect (updateTimer G0)
+              (make-game empty empty T0 1))
+(check-expect (updateTimer G2)
+              (make-game (list I1) (list M1) T1 501))
+
+(define (updateTimer g)
+  (make-game (game-invaders g) (game-missiles g) (game-tank g) (+ (game-t g) 1) ))
+
+  
+
+;; removeCollisions
+;; Game -> Game
+;; removes invaders and missiles that collide
+(check-expect (removeCollisions G0)
+              (make-game empty empty T0 0))
+
+(check-expect (removeCollisions G2)
+              (make-game (list I1) (list M1) T1 500))
+
+(check-expect (removeCollisions G4)
+              (make-game (list I4) (list M1) T1 1000))
+
+(define (removeCollisions g)
+  (make-game
+   (filterInvaders (game-invaders g) (game-missiles g))
+   (filterMissiles (game-missiles g) (game-invaders g))
+   (game-tank g)
+   (game-t g)))
+
+ 
+;; filterInvaders
+;; listOfInvaders listOfMissiles -> listOfInvaders
+;; checks every Invader in the listOfInvaders for collision with any Missile in the listOfMissiles and removes those invaders from the list
+(check-expect (filterInvaders empty empty) empty)
+(check-expect (filterInvaders LOI1 empty) LOI1)
+(check-expect (filterInvaders LOI2 LOM1) LOI2)
+(check-expect (filterInvaders LOI2 LOM2) (list I2 I4))
+
+(define (filterInvaders loi lom)
+  (cond [(empty? loi) empty]
+        [else
+         (cond [(invCollides? (first loi) lom) (filterInvaders (rest loi) lom)]
+               [else
+                (cons (first loi) (filterInvaders (rest loi) lom))])]))
+ 
+;; invCollides?
+;; Invader listOfMissiles -> Boolean
+;; produces true if given Invader collides with any of the Missiles in the list
+(check-expect (invCollides? I1 LOM0) false)
+(check-expect (invCollides? I1 LOM1) false)
+(check-expect (invCollides? I1 LOM2) true)
+(check-expect (invCollides? I2 LOM2) false)
+
+(define (invCollides? i lom)
+  (cond [(empty? lom) false]
+        [else
+         (if (and (= (invader-x i) (missile-x (first lom)))  (<= (abs (- (missile-y (first lom)) (invader-y i))) HIT_RANGE) )
+             true
+             (invCollides? i (rest lom)))]))
+ 
+ 
+;; filterMissiles
+;; listOfMissiles listOfInvaders -> listOfMissiles
+;; analogically to filterInvaders, but produces a list of missiles
+(check-expect (filterMissiles empty empty) empty)
+(check-expect (filterMissiles LOM1 empty) LOM1)
+(check-expect (filterMissiles LOM1 LOI2) LOM1)
+(check-expect (filterMissiles LOM2 LOI1) (list M1))
+(check-expect (filterMissiles LOM2 LOI2) (list M1))
+
+(define (filterMissiles lom loi)
+  (cond [(empty? lom) empty]
+        [else
+         (cond [(mslCollides? (first lom) loi) (filterMissiles (rest lom) loi)]
+               [else
+                (cons (first lom) (filterMissiles (rest lom) loi))])]))
+
+ 
+;; mslCollides?
+;; Missile listOfInvaders -> Boolean
+;; produces true if given Missile collides with any of the Invaders in the list
+(check-expect (mslCollides? M1 empty) false)
+(check-expect (mslCollides? M1 LOI2) false)
+(check-expect (mslCollides? M2 LOI1) true)
+(check-expect (mslCollides? M2 LOI2) true)
+
+(define (mslCollides? m loi)
+  (cond [(empty? loi) false]
+        [else
+         (if (and (= (missile-x m) (invader-x (first loi))) (<= (abs (- (missile-y m) (invader-y (first loi)))) HIT_RANGE))
+         true
+         (mslCollides? m (rest loi)))]))
+
+
+
+;; moveInvaders
+;; Game -> Game
+;; moves all the invaders in the Game by their y and x speed (in the proper direction!)
+;; if an invader reaches right or left edge of the BACKGROUND, the direction is switched
+;; !!!
+(define (moveInvaders g) g)
+
+
+
+;; moveMissiles
+;; Game -> Game
+;; moves all the missiles towards upper edge by MISSILE_SPEED
+;; !!!
+(define (moveMissiles g) g)
+
+
+
+;; invade
+;; Game -> Game
+;; adds a new invader every INVADE_RATE ticks
+;; !!!
+(define (invade g) g)
+
+ 
+;; renderObjects
+;; Game -> Image
+;; draws current state of the game on the BACKGROUND
+;; !!!
+(define (renderObjects g) BACKGROUND)
+
+
+
+;; handleKey
+;; Game keyEvent -> game
+;; moves the tank when arrow keys are pressed and shoot a missle when space key is pressed
+;; !!!
+(define (handleKey g) g)
+
+
+;; didInvaderLand?
+;; Game -> Boolean
+;; produces true if the invader has reachen the bottom edge of the BACKGROUND
+;; !!!
+(define (didInvaderLand? g) false)
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
