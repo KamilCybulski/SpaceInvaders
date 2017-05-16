@@ -244,7 +244,7 @@
 (define (invCollides? i lom)
   (cond [(empty? lom) false]
         [else
-         (if (and (= (invader-x i) (missile-x (first lom)))  (<= (abs (- (missile-y (first lom)) (invader-y i))) HIT_RANGE) )
+         (if (and (<= (abs (- (missile-x (first lom)) (invader-x i))) HIT_RANGE)  (<= (abs (- (missile-y (first lom)) (invader-y i))) HIT_RANGE) )
              true
              (invCollides? i (rest lom)))]))
  
@@ -277,10 +277,10 @@
 (define (mslCollides? m loi)
   (cond [(empty? loi) false]
         [else
-         (if (and (= (missile-x m) (invader-x (first loi))) (<= (abs (- (missile-y m) (invader-y (first loi)))) HIT_RANGE))
+         (if (and (<= (abs (- (invader-x (first loi)) (missile-x m))) HIT_RANGE) (<= (abs (- (missile-y m) (invader-y (first loi)))) HIT_RANGE))
              true
              (mslCollides? m (rest loi)))]))
-
+ 
  
 ;; missilesOnScreenOnly
 ;; Game -> Game
@@ -514,14 +514,6 @@
 
  
  
-
-
-
-(define (fn-for-loi loi)
-  (cond [(empty? loi) (...)]
-        [else
-         (... (first loi)
-              (fn-for-loi (rest loi)))]))
 
 
 
