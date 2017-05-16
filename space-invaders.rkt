@@ -14,7 +14,7 @@
 
 (define INV_X_SPEED 1.5)  ;speeds (not velocities) in pixels per tick
 (define INV_Y_SPEED 1.5)
-(define TANK_SPEED 2)
+(define TANK_SPEED 5)
 (define MISSILE_SPEED 10)
 
 (define HIT_RANGE 10)
@@ -450,6 +450,7 @@
 ;; renderInvaders
 ;; listOfInvaders -> Image
 ;; renders all the invaders in the list
+;; tests from renderObjects apply
 
 (define (renderInvaders loi)
   (cond [(empty? loi) BLANK]
@@ -460,6 +461,7 @@
 ;; renderMissiles
 ;; listOfMissiles -> Image
 ;; renders all the missiles in the list
+;; tests from renderObjects apply
 
 (define (renderMissiles lom)
   (cond [(empty? lom) BLANK]
@@ -471,8 +473,34 @@
 ;; handleKey
 ;; Game keyEvent -> game
 ;; moves the tank when arrow keys are pressed and shoot a missle when space key is pressed
-;; !!!
-(define (handleKey g) g)
+(check-expect (handleKey G1 "left")
+              (make-game (game-invaders G1) (game-missiles G1) (make-tank (- (tank-x (game-tank G1))  TANK_SPEED) -1) (game-t G1)))
+(check-expect (handleKey G1 "right")
+              (make-game (game-invaders G1) (game-missiles G1) (make-tank (+ (tank-x (game-tank G1)) TANK_SPEED) 1) (game-t G1)))
+(check-expect (handleKey G1 " ")
+              (make-game (game-invaders G1) (cons (make-missile (tank-x (game-tank G1)) HEIGHT) (game-missiles G1)) (game-tank G1) (game-t G1)))
+
+(define (handleKey g ke)
+  (cond [(or (key=? ke "right")(key=? ke "left")) (moveTank g ke)]
+        [(key=? ke " ") (shoot g)] ))
+
+
+;; moveTank
+;; Game -> Game
+;; moves tank in the proper direction if the <- or -> key is pressed
+;; tests from handleKey apply
+
+(define (moveTank g ke)
+  (cond [(key=? ke "left") (make-game (game-invaders g) (game-missiles g) (make-tank (- (tank-x (game-tank g)) TANK_SPEED) -1) (game-t g))]
+        [(key=? ke "right") (make-game (game-invaders g) (game-missiles g) (make-tank (+ (tank-x (game-tank g)) TANK_SPEED) 1) (game-t g))]))
+
+
+;; shoot
+;; Game -> Game
+;; shoots a missiles if space key is pressed
+;; tests from handleKey apply
+(define (shoot g)
+  (make-game (game-invaders g) (cons (make-missile (tank-x (game-tank g)) HEIGHT) (game-missiles g)) (game-tank g) (game-t g) ))
 
 
 ;; didInvaderLand?
@@ -485,7 +513,7 @@
 
 
  
-
+ 
 
 
 
