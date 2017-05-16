@@ -12,8 +12,8 @@
 (define WIDTH  300)
 (define HEIGHT 500)
 
-(define INV_X_SPEED 1.5)  ;speeds (not velocities) in pixels per tick
-(define INV_Y_SPEED 1.5)
+(define INV_X_SPEED 2)  ;speeds (not velocities) in pixels per tick
+(define INV_Y_SPEED 2)
 (define TANK_SPEED 5)
 (define MISSILE_SPEED 10)
 
@@ -153,7 +153,7 @@
   (big-bang g                                 ; game
             (on-tick updateGame)              ; game -> game  
             (to-draw renderObjects)           ; game -> image
-            (on-key handleKey)                ; game keyEvent -> game
+            (on-release handleKey)            ; game keyEvent -> game
             (stop-when didInvaderLand?) ))    ; game -> boolean
 
 
@@ -264,8 +264,8 @@
          (cond [(mslCollides? (first lom) loi) (filterMissiles (rest lom) loi)]
                [else
                 (cons (first lom) (filterMissiles (rest lom) loi))])]))
-
  
+
 ;; mslCollides?
 ;; Missile listOfInvaders -> Boolean
 ;; produces true if given Missile collides with any of the Invaders in the list
@@ -403,14 +403,14 @@
 ;; invade
 ;; Game -> Game
 ;; adds a new invader every INVADE_RATE ticks
-(check-expect (invade G0) (make-game (list (make-invader 50 0 1)) empty T0 0))
-(check-expect (invade (make-game empty empty T0 28)) (make-game (list (make-invader 50 0 1)) empty T0 28))
-(check-expect (invade G3) G3)
-(check-expect (invade (make-game empty empty T0 84)) (make-game (list (make-invader 50 0 1)) empty T0 84))
+(check-random (invade G0) (make-game (list (make-invader (random WIDTH) 0 1)) empty T0 0))
+(check-random (invade (make-game empty empty T0 28)) (make-game (list (make-invader (random WIDTH) 0 1)) empty T0 28))
+(check-random (invade G3) G3)
+(check-random (invade (make-game empty empty T0 84)) (make-game (list (make-invader (random WIDTH) 0 1)) empty T0 84))
 
 (define (invade g)
   (if (integer? (/ (game-t g) INVADE_RATE))
-      (make-game (cons (make-invader 50 0 1) (game-invaders g)) (game-missiles g) (game-tank g) (game-t g))
+      (make-game (cons (make-invader (random WIDTH) 0 1) (game-invaders g)) (game-missiles g) (game-tank g) (game-t g))
       g ))
 
   
@@ -506,8 +506,28 @@
 ;; didInvaderLand?
 ;; Game -> Boolean
 ;; produces true if the invader has reachen the bottom edge of the BACKGROUND
-;; !!!
-(define (didInvaderLand? g) false)
+(check-expect (didInvaderLand? G0) false)
+(check-expect (didInvaderLand? G1) false)
+(check-expect (didInvaderLand? G2) false)
+(check-expect (didInvaderLand? G3) true)
+(check-expect (didInvaderLand? G5) true)
+
+(define (didInvaderLand? g)
+  (checkInvader(game-invaders g)))
+
+
+;; checkInvader
+;; listOfInvaders -> Boolean
+;; checks if any of the invaders in the list have reached the bottom edge
+;; tests from didInvaderLand? apply
+
+(define (checkInvader loi)
+  (cond [(empty? loi) false]
+        [else
+         (if (>= (invader-y (first loi)) HEIGHT)
+             true
+             (checkInvader (rest loi)) )]))
+
  
 
 
