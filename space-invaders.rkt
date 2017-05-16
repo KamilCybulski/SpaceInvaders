@@ -22,6 +22,7 @@
 (define INVADE_RATE 28)
 
 (define BACKGROUND (empty-scene WIDTH HEIGHT))
+(define BLANK (rectangle WIDTH HEIGHT "outline" "WHITE"))
 
 (define INVADER
   (overlay/xy (ellipse 10 15 "outline" "blue")              ;cockpit cover
@@ -412,15 +413,61 @@
       (make-game (cons (make-invader 50 0 1) (game-invaders g)) (game-missiles g) (game-tank g) (game-t g))
       g ))
 
- 
+  
 ;; renderObjects
 ;; Game -> Image
 ;; draws current state of the game on the BACKGROUND
-;; !!!
-(define (renderObjects g) BACKGROUND)
-
+(check-expect (renderObjects G1)
+       (place-image BLANK (/ WIDTH 2) (/ HEIGHT 2)
+                    (place-image BLANK (/ WIDTH 2) (/ HEIGHT 2)
+                                 (place-image TANK (tank-x T1) HEIGHT
+                                              BACKGROUND))))
   
+(check-expect (renderObjects G2)
+              (place-image INVADER (invader-x I1) (invader-y I1)
+                    (place-image BLANK (/ WIDTH 2) (/ HEIGHT 2)
+                           (place-image MISSILE (missile-x M1) (missile-y M1)
+                                   (place-image BLANK (/ WIDTH 2) (/ HEIGHT 2)
+                                        (place-image TANK (tank-x T1) HEIGHT
+                                                     BACKGROUND))))))
 
+(check-expect (renderObjects G3)
+              (place-image INVADER (invader-x I1) (invader-y I1)
+                           (place-image INVADER (invader-x I2) (invader-y I2)
+                                   (place-image BLANK (/ WIDTH 2) (/ HEIGHT 2)
+                                        (place-image MISSILE (missile-x M1) (missile-y M1)
+                                                     (place-image MISSILE (missile-x M2) (missile-y M2)
+                                                            (place-image BLANK (/ WIDTH 2) (/ HEIGHT 2)
+                                                              (place-image TANK (tank-x T1) HEIGHT
+                                                                    BACKGROUND))))))))
+
+
+(define (renderObjects g)
+  (place-image (renderInvaders (game-invaders g)) (/ WIDTH 2) (/ HEIGHT 2)
+                               (place-image (renderMissiles (game-missiles g)) (/ WIDTH 2) (/ HEIGHT 2)
+                                            (place-image TANK (tank-x (game-tank g)) HEIGHT
+                                                         BACKGROUND))))
+;; renderInvaders
+;; listOfInvaders -> Image
+;; renders all the invaders in the list
+
+(define (renderInvaders loi)
+  (cond [(empty? loi) BLANK]
+        [else
+         (place-image INVADER (invader-x (first loi)) (invader-y (first loi)) (renderInvaders (rest loi)))]))
+
+
+;; renderMissiles
+;; listOfMissiles -> Image
+;; renders all the missiles in the list
+
+(define (renderMissiles lom)
+  (cond [(empty? lom) BLANK]
+        [else
+         (place-image MISSILE (missile-x (first lom)) (missile-y (first lom)) (renderMissiles (rest lom)))]))
+   
+
+ 
 ;; handleKey
 ;; Game keyEvent -> game
 ;; moves the tank when arrow keys are pressed and shoot a missle when space key is pressed
@@ -433,7 +480,7 @@
 ;; produces true if the invader has reachen the bottom edge of the BACKGROUND
 ;; !!!
 (define (didInvaderLand? g) false)
-
+ 
 
 
 
@@ -442,8 +489,11 @@
 
 
 
-
-
+(define (fn-for-loi loi)
+  (cond [(empty? loi) (...)]
+        [else
+         (... (first loi)
+              (fn-for-loi (rest loi)))]))
 
 
 
