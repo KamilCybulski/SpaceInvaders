@@ -94,7 +94,6 @@
 ;; listOfInvaders is one of:
 ;; - empty
 ;; -(cons Invader listOfInvaders)
-;; interp. A list of invaders currently in the game
 (define LOI0 empty)
 (define LOI1 (list I1))
 (define LOI2 (list I1 I2 I4))
@@ -123,7 +122,6 @@
 ;; listOfMissiles is one of:
 ;; -empty
 ;; -(cons Missile listOfMissiles)
-;; interp. A list of missiles currently in the game
 (define LOM0 empty)
 (define LOM1 (list M1))
 (define LOM2 (list M1 M2 M3))
@@ -155,8 +153,7 @@
   (big-bang g                                 ; game
             (on-tick updateGame)              ; game -> game  
             (to-draw renderObjects)           ; game -> image
-            (on-release shoot)                ; game keyEvent -> game
-            (on-key moveTank)                 ; game keyEvent -> game
+            (on-release handleKey)            ; game keyEvent -> game
             (stop-when didInvaderLand?) ))    ; game -> boolean
 
 
@@ -472,31 +469,38 @@
          (place-image MISSILE (missile-x (first lom)) (missile-y (first lom)) (renderMissiles (rest lom)))]))
    
 
+ 
+;; handleKey
+;; Game keyEvent -> game
+;; moves the tank when arrow keys are pressed and shoot a missle when space key is pressed
+(check-expect (handleKey G1 "left")
+              (make-game (game-invaders G1) (game-missiles G1) (make-tank (- (tank-x (game-tank G1))  TANK_SPEED) -1) (game-t G1)))
+(check-expect (handleKey G1 "right")
+              (make-game (game-invaders G1) (game-missiles G1) (make-tank (+ (tank-x (game-tank G1)) TANK_SPEED) 1) (game-t G1)))
+(check-expect (handleKey G1 " ")
+              (make-game (game-invaders G1) (cons (make-missile (tank-x (game-tank G1)) HEIGHT) (game-missiles G1)) (game-tank G1) (game-t G1)))
+
+(define (handleKey g ke)
+  (cond [(or (key=? ke "right")(key=? ke "left")) (moveTank g ke)]
+        [(key=? ke " ") (shoot g)] ))
+
+
 ;; moveTank
 ;; Game -> Game
 ;; moves tank in the proper direction if the <- or -> key is pressed
-(check-expect (moveTank G1 "left")
-              (make-game (game-invaders G1) (game-missiles G1) (make-tank (- (tank-x (game-tank G1))  TANK_SPEED) -1) (game-t G1)))
-(check-expect (moveTank G1 "right")
-              (make-game (game-invaders G1) (game-missiles G1) (make-tank (+ (tank-x (game-tank G1)) TANK_SPEED) 1) (game-t G1)))
-(check-expect (moveTank G1 "q") G1)
+;; tests from handleKey apply
 
 (define (moveTank g ke)
   (cond [(key=? ke "left") (make-game (game-invaders g) (game-missiles g) (make-tank (- (tank-x (game-tank g)) TANK_SPEED) -1) (game-t g))]
-        [(key=? ke "right") (make-game (game-invaders g) (game-missiles g) (make-tank (+ (tank-x (game-tank g)) TANK_SPEED) 1) (game-t g))]
-        [else g]))
+        [(key=? ke "right") (make-game (game-invaders g) (game-missiles g) (make-tank (+ (tank-x (game-tank g)) TANK_SPEED) 1) (game-t g))]))
 
 
 ;; shoot
 ;; Game -> Game
 ;; shoots a missiles if space key is pressed
-(check-expect (shoot G1 " ")
-              (make-game (game-invaders G1) (cons (make-missile (tank-x (game-tank G1)) HEIGHT) (game-missiles G1)) (game-tank G1) (game-t G1)))
-(check-expect (shoot G1 "q") G1)
-
-(define (shoot g ke)
-  (cond [(key=? ke " ") (make-game (game-invaders g) (cons (make-missile (tank-x (game-tank g)) HEIGHT) (game-missiles g)) (game-tank g) (game-t g) )]
-        [else g]))
+;; tests from handleKey apply
+(define (shoot g)
+  (make-game (game-invaders g) (cons (make-missile (tank-x (game-tank g)) HEIGHT) (game-missiles g)) (game-tank g) (game-t g) ))
 
 
 ;; didInvaderLand?
